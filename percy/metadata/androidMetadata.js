@@ -40,7 +40,7 @@ function createAndroidMetadata(device, options = {}, { exec = defaultExec } = {}
       const m = override || physical;
       _screenSize = m
         ? { width: parseInt(m[1], 10), height: parseInt(m[2], 10) }
-        : { width: 0, height: 0 };
+        : { width: 360, height: 640 }; // non-zero fallback so Percy accepts tag
       return _screenSize;
     },
 

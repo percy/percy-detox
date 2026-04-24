@@ -2,7 +2,7 @@ const fs = require('fs/promises');
 const { exec: defaultExec } = require('../util/exec');
 const log = require('../util/log');
 
-const MODULE_STATE = { scaleCache: new Map() };
+const MODULE_STATE = { scaleCache: new Map(), sizeCache: new Map() };
 
 function createIosMetadata(device, options = {}, { exec = defaultExec, readFile = fs.readFile } = {}) {
   let _info = null;
@@ -62,8 +62,20 @@ function createIosMetadata(device, options = {}, { exec = defaultExec, readFile 
       return info.name || 'unknown';
     },
 
-    // Percy backend tolerates 0,0 as auto-compute.
-    screenSize: async () => ({ width: 0, height: 0 }),
+    // Computed from the first captured PNG when path is available.
+    // Cached per device.id alongside scaleFactor.
+    screenSize: async (pngPath) => {
+      const key = (device && device.id) || 'unknown-ios';
+      if (MODULE_STATE.sizeCache.has(key)) return MODULE_STATE.sizeCache.get(key);
+      if (!pngPath) return { width: 0, height: 0 };
+      const dims = await parsePngDims(pngPath);
+      const scale = MODULE_STATE.scaleCache.get(key) || 2;
+      const size = dims && dims.width > 0
+        ? { width: Math.round(dims.width / scale), height: Math.round(dims.height / scale) }
+        : { width: 0, height: 0 };
+      MODULE_STATE.sizeCache.set(key, size);
+      return size;
+    },
 
     orientation: async () => options.orientation || 'portrait',
 
@@ -94,6 +106,7 @@ function createIosMetadata(device, options = {}, { exec = defaultExec, readFile 
 
 function __resetScaleCacheForTests() {
   MODULE_STATE.scaleCache.clear();
+  MODULE_STATE.sizeCache.clear();
 }
 
 module.exports = { createIosMetadata, __resetScaleCacheForTests };

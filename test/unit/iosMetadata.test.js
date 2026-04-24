@@ -121,9 +121,36 @@ describe('iosMetadata', () => {
     expect(calls).toBe(1);
   });
 
-  it('screenSize returns 0,0 (Percy auto-computes)', async () => {
+  it('screenSize returns 0,0 when no pngPath provided', async () => {
     const m = createIosMetadata({ id: 'UDID-A' }, {}, { exec: execReturning(SIMCTL_JSON) });
     expect(await m.screenSize()).toEqual({ width: 0, height: 0 });
+  });
+
+  it('screenSize computes from PNG dims divided by scaleFactor', async () => {
+    const m = createIosMetadata(
+      { id: 'UDID-A' },
+      {},
+      {
+        exec: execReturning(SIMCTL_JSON),
+        readFile: async () => pngBufferWithDims(1170, 2532)
+      }
+    );
+    // prime scaleFactor first (3x for width 1170)
+    await m.scaleFactor('/tmp/snap.png');
+    const size = await m.screenSize('/tmp/snap.png');
+    expect(size).toEqual({ width: 390, height: 844 });
+  });
+
+  it('screenSize caches per device.id', async () => {
+    let calls = 0;
+    const readFile = async () => { calls++; return pngBufferWithDims(828, 1792); };
+    const m = createIosMetadata(
+      { id: 'UDID-A' }, {}, { exec: execReturning(SIMCTL_JSON), readFile }
+    );
+    await m.scaleFactor('/p1'); // 1 call
+    await m.screenSize('/p1'); // 2nd call
+    await m.screenSize('/p2'); // cached — no 3rd call
+    expect(calls).toBe(2);
   });
 
   it('orientation defaults to portrait, honors option', async () => {

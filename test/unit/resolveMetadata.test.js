@@ -50,4 +50,22 @@ describe('createFallbackMetadata', () => {
     expect(await m.navigationBarHeight()).toBe(20);
     expect(await m.scaleFactor()).toBe(2);
   });
+
+  it('screenSize defaults to 360x640 without pngPath', async () => {
+    const m = createFallbackMetadata({});
+    expect(await m.screenSize()).toEqual({ width: 360, height: 640 });
+  });
+
+  it('screenSize derives from PNG dims when pngPath provided', async () => {
+    const PNG = Buffer.alloc(25);
+    PNG.writeUInt8(0x89, 0); PNG.writeUInt8(0x50, 1); PNG.writeUInt8(0x4E, 2); PNG.writeUInt8(0x47, 3);
+    PNG.writeUInt32BE(13, 8);
+    PNG.write('IHDR', 12);
+    PNG.writeUInt32BE(828, 16);
+    PNG.writeUInt32BE(1792, 20);
+    const m = createFallbackMetadata({}, { readFile: async () => PNG });
+    await m.scaleFactor('/x'); // primes scale = 2
+    const size = await m.screenSize('/x');
+    expect(size).toEqual({ width: 414, height: 896 });
+  });
 });

@@ -41,10 +41,10 @@ describe('androidMetadata', () => {
     expect(await m.screenSize()).toEqual({ width: 1080, height: 2340 });
   });
 
-  it('returns 0x0 when wm size output is unparseable', async () => {
+  it('falls back to 360x640 when wm size output is unparseable', async () => {
     const exec = mockExec([['wm size', 'garbage']]);
     const m = createAndroidMetadata(device, {}, { exec });
-    expect(await m.screenSize()).toEqual({ width: 0, height: 0 });
+    expect(await m.screenSize()).toEqual({ width: 360, height: 640 });
   });
 
   it('computes scaleFactor from wm density', async () => {
@@ -84,7 +84,7 @@ describe('androidMetadata', () => {
     const exec = async () => { throw new Error('adb not found'); };
     const m = createAndroidMetadata(device, {}, { exec });
     expect(await m.osVersion()).toBe('unknown');
-    expect(await m.screenSize()).toEqual({ width: 0, height: 0 });
+    expect(await m.screenSize()).toEqual({ width: 360, height: 640 });
     expect(await m.scaleFactor()).toBe(2);
   });
 

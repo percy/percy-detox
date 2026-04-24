@@ -43,7 +43,7 @@ class GenericProvider {
 
     const scaleFactor = await this.metadata.scaleFactor(sdkPath);
 
-    const tag = await this.buildTag();
+    const tag = await this.buildTag(sdkPath);
     const ignoreRegions = await findRegions({
       kind: 'ignore',
       scaleFactor,
@@ -84,8 +84,8 @@ class GenericProvider {
     });
   }
 
-  async buildTag() {
-    const size = await this.metadata.screenSize();
+  async buildTag(pngPath) {
+    const size = await this.metadata.screenSize(pngPath);
     return {
       name: await this.metadata.deviceName(),
       osName: await this.metadata.osName(),
