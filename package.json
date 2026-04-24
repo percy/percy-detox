@@ -1,0 +1,64 @@
+{
+  "name": "@percy/detox",
+  "version": "0.1.0-next.0",
+  "description": "Percy visual testing SDK for Detox (React Native E2E)",
+  "license": "MIT",
+  "author": "Perceptual Inc.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/percy/percy-detox.git"
+  },
+  "keywords": [
+    "percy",
+    "detox",
+    "react-native",
+    "visual testing",
+    "e2e"
+  ],
+  "main": "index.js",
+  "types": "types/index.d.ts",
+  "files": [
+    "index.js",
+    "percy",
+    "types/index.d.ts"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "lint": "eslint --ignore-path .gitignore .",
+    "test": "cross-env NODE_ENV=test jasmine --config=./test/jasmine.json",
+    "test:coverage": "nyc npm test"
+  },
+  "dependencies": {
+    "@percy/sdk-utils": "^1.30.9",
+    "tmp": "^0.2.3"
+  },
+  "peerDependencies": {
+    "detox": ">=20.32.0"
+  },
+  "peerDependenciesMeta": {
+    "detox": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "eslint": "^8.57.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-n": "^16.6.2",
+    "eslint-plugin-promise": "^6.1.1",
+    "jasmine": "^5.4.0",
+    "jasmine-spec-reporter": "^7.0.0",
+    "nyc": "^15.1.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "next"
+  },
+  "bugs": {
+    "url": "https://github.com/percy/percy-detox/issues"
+  },
+  "homepage": "https://github.com/percy/percy-detox#readme"
+}

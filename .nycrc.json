@@ -1,0 +1,7 @@
+{
+  "all": true,
+  "include": ["index.js", "percy/**/*.js"],
+  "exclude": ["test/**", "**/*.test.js"],
+  "reporter": ["text", "html", "lcov"],
+  "check-coverage": false
+}
