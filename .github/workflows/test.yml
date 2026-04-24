@@ -28,7 +28,7 @@ jobs:
         run: exit 1
         if: ${{ github.event_name == 'workflow_dispatch' && steps.regex-match.outputs && steps.regex-match.outputs.match == '' }}
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
           cache: 'npm'
