@@ -1,6 +1,6 @@
 {
   "name": "@percy/detox",
-  "version": "0.1.0-next.0",
+  "version": "0.1.0-alpha.0",
   "description": "Percy visual testing SDK for Detox (React Native E2E)",
   "license": "MIT",
   "author": "Perceptual Inc.",
@@ -56,7 +56,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "next"
+    "tag": "alpha"
   },
   "bugs": {
     "url": "https://github.com/percy/percy-detox/issues"
