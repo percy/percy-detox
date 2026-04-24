@@ -82,11 +82,13 @@ class Canvas {
     this.height = height;
     this.buf = Buffer.alloc(width * height * 4);
   }
+
   fill([r, g, b, a] = [255, 255, 255, 255]) {
     for (let i = 0; i < this.buf.length; i += 4) {
       this.buf[i] = r; this.buf[i + 1] = g; this.buf[i + 2] = b; this.buf[i + 3] = a;
     }
   }
+
   rect(x, y, w, h, [r, g, b, a] = [0, 0, 0, 255]) {
     const x0 = Math.max(0, Math.floor(x));
     const y0 = Math.max(0, Math.floor(y));
@@ -99,6 +101,7 @@ class Canvas {
       }
     }
   }
+
   /**
    * Render vertical stripes (visible, deterministic "text"-ish marker) so each
    * screen is visibly distinct even without a font renderer.
@@ -108,6 +111,7 @@ class Canvas {
       this.rect(x + i * (stripeW + gap), y, stripeW, stripeH, color);
     }
   }
+
   toPng() {
     return encodePng(this.width, this.height, this.buf);
   }
@@ -120,11 +124,11 @@ class Canvas {
 const PALETTE = {
   background: [245, 247, 250, 255],
   statusBar: [30, 41, 59, 255],
-  header: [99, 102, 241, 255],      // indigo
-  accent: [14, 165, 233, 255],       // sky
-  success: [34, 197, 94, 255],       // green
-  warning: [234, 179, 8, 255],       // yellow
-  danger: [239, 68, 68, 255],        // red
+  header: [99, 102, 241, 255], // indigo
+  accent: [14, 165, 233, 255], // sky
+  success: [34, 197, 94, 255], // green
+  warning: [234, 179, 8, 255], // yellow
+  danger: [239, 68, 68, 255], // red
   card: [255, 255, 255, 255],
   cardBorder: [226, 232, 240, 255],
   text: [15, 23, 42, 255],
@@ -160,7 +164,7 @@ function screenHome(width, height, isDiff) {
   c.rect(width * 0.06, height * 0.17, width * 0.88, height * 0.18, PALETTE.cardBorder);
   c.rect(width * 0.06 + 1, height * 0.17 + 1, width * 0.88 - 2, height * 0.18 - 2, PALETTE.card);
   c.stripes(width * 0.1, height * 0.22, 10, 16, 6, 10,
-    isDiff ? PALETTE.danger : PALETTE.accent);   // DIFF: color change
+    isDiff ? PALETTE.danger : PALETTE.accent); // DIFF: color change
   c.rect(width * 0.1, height * 0.28, width * 0.32, height * 0.04,
     isDiff ? PALETTE.warning : PALETTE.success); // CTA button
   // list of three cards
@@ -184,8 +188,8 @@ function screenProductList(width, height, isDiff) {
   const c = baseLayout(width, height, PALETTE.accent);
   c.stripes(width * 0.08, height * 0.09, 20, 10, 3, 6, PALETTE.card);
   // grid of 6 product cards (2 cols x 3 rows)
-  const cols = 2, rows = 3;
-  const cardW = width * 0.42, cardH = height * 0.18;
+  const cols = 2; const rows = 3;
+  const cardW = width * 0.42; const cardH = height * 0.18;
   const gap = width * 0.05;
   for (let r = 0; r < rows; r++) {
     for (let col = 0; col < cols; col++) {
@@ -196,7 +200,7 @@ function screenProductList(width, height, isDiff) {
       c.rect(x + 1, y + 1, cardW - 2, cardH - 2, PALETTE.card);
       const thumbH = cardH * 0.6;
       const thumbColor = isDiff && r === 0 && col === 0
-        ? PALETTE.danger                  // DIFF: first tile changes color
+        ? PALETTE.danger // DIFF: first tile changes color
         : [60 + r * 40, 80 + col * 50, 180 - r * 20, 255];
       c.rect(x + cardW * 0.08, y + cardH * 0.05, cardW * 0.84, thumbH, thumbColor);
       c.stripes(x + cardW * 0.08, y + cardH * 0.72, 10, 6, 3, 3, PALETTE.text);
@@ -229,7 +233,7 @@ function screenCart(width, height, isDiff) {
   const c = baseLayout(width, height, PALETTE.success);
   c.stripes(width * 0.08, height * 0.09, 12, 12, 4, 8, PALETTE.card);
   // line items
-  const items = isDiff ? 4 : 3;  // DIFF: one extra line item
+  const items = isDiff ? 4 : 3; // DIFF: one extra line item
   for (let i = 0; i < items; i++) {
     const y = height * (0.16 + i * 0.12);
     c.rect(width * 0.06, y, width * 0.88, height * 0.09, PALETTE.card);
@@ -274,10 +278,16 @@ function screenSettings(width, height, isDiff) {
 // PNG writing — one per capture
 // ---------------------------------------------------------------------------
 
+function sanitizeForPath(s) {
+  // replace everything that isn't [A-Za-z0-9_-] with _; strip leading dots
+  return String(s).replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^\.+/, '').slice(0, 80) || 'snap';
+}
+
 async function saveScreen(name, screenFn, { width, height, isDiff }) {
   const dir = path.join(os.tmpdir(), `percy-detox-smoke-${process.pid}`);
   await fs.mkdir(dir, { recursive: true });
-  const filepath = path.join(dir, `${name}-${Date.now()}.png`);
+  const safeName = sanitizeForPath(name);
+  const filepath = path.join(dir, `${safeName}-${Date.now()}.png`);
   const canvas = screenFn(width, height, isDiff);
   await fs.writeFile(filepath, canvas.toPng());
   return filepath;
@@ -285,7 +295,8 @@ async function saveScreen(name, screenFn, { width, height, isDiff }) {
 
 function makeDevice({ platform, name, id, width, height, isDiff }, screenFn) {
   return {
-    id, name,
+    id,
+    name,
     getPlatform: async () => platform,
     takeScreenshot: async (snapName) =>
       saveScreen(snapName || name, screenFn, { width, height, isDiff })
@@ -337,26 +348,26 @@ async function main() {
 
   // One screenshot per feature, paired across iOS + Android where it makes sense.
   console.log('\n[ Home ]');
-  await capture(IOS_DEVICE,     'iOS | Home',           screenHome);
-  await capture(ANDROID_DEVICE, 'Android | Home',       screenHome);
+  await capture(IOS_DEVICE, 'iOS | Home', screenHome);
+  await capture(ANDROID_DEVICE, 'Android | Home', screenHome);
 
   console.log('\n[ Product list ]');
-  await capture(IOS_DEVICE,     'iOS | Product List',   screenProductList);
+  await capture(IOS_DEVICE, 'iOS | Product List', screenProductList);
   await capture(ANDROID_DEVICE, 'Android | Product List', screenProductList);
 
   console.log('\n[ Product detail ]');
-  await capture(IOS_DEVICE,     'iOS | Product Detail', screenProductDetail, {
+  await capture(IOS_DEVICE, 'iOS | Product Detail', screenProductDetail, {
     customIgnoreRegions: [{ top: 0, bottom: 90, left: 0, right: IOS_DEVICE.width }]
   });
   await capture(ANDROID_DEVICE, 'Android | Product Detail', screenProductDetail);
 
   console.log('\n[ Cart ]');
-  await capture(IOS_DEVICE,     'iOS | Cart',           screenCart);
-  await capture(ANDROID_DEVICE, 'Android | Cart',       screenCart);
+  await capture(IOS_DEVICE, 'iOS | Cart', screenCart);
+  await capture(ANDROID_DEVICE, 'Android | Cart', screenCart);
 
   console.log('\n[ Settings ]');
-  await capture(IOS_DEVICE,     'iOS | Settings',       screenSettings);
-  await capture(ANDROID_DEVICE, 'Android | Settings',   screenSettings);
+  await capture(IOS_DEVICE, 'iOS | Settings', screenSettings);
+  await capture(ANDROID_DEVICE, 'Android | Settings', screenSettings);
 
   console.log(`\n=== done — variant=${VARIANT} ===`);
 }
