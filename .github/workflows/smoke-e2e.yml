@@ -1,0 +1,30 @@
+# End-to-end smoke test — creates a real Percy build from the synthetic
+# screenshot generator. Requires PERCY_TOKEN secret for an App-type project.
+name: Smoke (E2E)
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: baseline | diff
+        required: true
+        default: baseline
+        type: choice
+        options: [baseline, diff]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - name: Install @percy/cli
+        run: npm install --no-save @percy/cli
+      - name: Percy app:exec smoke
+        env:
+          PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
+          PERCY_VARIANT: ${{ inputs.variant }}
+        run: npx percy app:exec -- node scripts/smoke-e2e.js
