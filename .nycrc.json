@@ -3,5 +3,9 @@
   "include": ["index.js", "percy/**/*.js"],
   "exclude": ["test/**", "**/*.test.js"],
   "reporter": ["text", "html", "lcov"],
-  "check-coverage": false
+  "check-coverage": true,
+  "branches": 100,
+  "lines": 100,
+  "functions": 100,
+  "statements": 100
 }

@@ -80,4 +80,34 @@ describe('resolveDebugUrl', () => {
     });
     expect(url).toContain('sessions/sync-sess');
   });
+
+  it('returns null when called with no options at all', async () => {
+    delete process.env.BROWSERSTACK_SESSION_ID;
+    delete process.env.BROWSERSTACK_BUILD_ID;
+    const url = await resolveDebugUrl();
+    expect(url).toBeNull();
+  });
+
+  it('treats empty-string callback return as null', async () => {
+    delete process.env.BROWSERSTACK_SESSION_ID;
+    const url = await resolveDebugUrl({
+      getSessionId: async () => ''
+    });
+    expect(url).toBeNull();
+  });
+
+  it('treats empty env var as null', async () => {
+    process.env.BROWSERSTACK_SESSION_ID = ''; // falsy but defined
+    process.env.BROWSERSTACK_BUILD_ID = '';
+    const url = await resolveDebugUrl({});
+    expect(url).toBeNull();
+  });
+
+  it('callback that returns undefined and env empty string yields null', async () => {
+    process.env.BROWSERSTACK_SESSION_ID = '';
+    const url = await resolveDebugUrl({
+      getSessionId: async () => undefined
+    });
+    expect(url).toBeNull();
+  });
 });

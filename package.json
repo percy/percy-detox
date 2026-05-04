@@ -1,6 +1,6 @@
 {
   "name": "@percy/detox",
-  "version": "0.1.0-alpha.0",
+  "version": "1.0.0",
   "description": "Percy visual testing SDK for Detox (React Native E2E)",
   "license": "MIT",
   "author": "Perceptual Inc.",
@@ -28,7 +28,8 @@
   "scripts": {
     "lint": "eslint --ignore-path .gitignore .",
     "test": "cross-env NODE_ENV=test jasmine --config=./test/jasmine.json",
-    "test:coverage": "nyc npm test"
+    "test:coverage": "nyc npm test",
+    "test:types": "tsd"
   },
   "dependencies": {
     "@percy/sdk-utils": "^1.30.9",
@@ -52,11 +53,15 @@
     "eslint-plugin-promise": "^6.1.1",
     "jasmine": "^5.4.0",
     "jasmine-spec-reporter": "^7.0.0",
-    "nyc": "^15.1.0"
+    "nyc": "^15.1.0",
+    "tsd": "^0.31.2"
+  },
+  "tsd": {
+    "directory": "types"
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "latest"
   },
   "bugs": {
     "url": "https://github.com/percy/percy-detox/issues"
