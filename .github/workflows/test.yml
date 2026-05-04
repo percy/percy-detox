@@ -48,4 +48,4 @@ jobs:
           cd "$WORKSPACE"
           npm link @percy/cli
           npx percy --version
-      - run: npm test
+      - run: npm run test:coverage

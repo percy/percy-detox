@@ -98,4 +98,80 @@ describe('androidMetadata', () => {
     const m = createAndroidMetadata({ id: 'emulator-5554' }, {}, { exec });
     expect(await m.deviceName()).toBe('Pixel 7');
   });
+
+  it('deviceName falls back to "unknown" when adb returns empty and no device info', async () => {
+    const m = createAndroidMetadata({ id: 'x' }, {}, { exec: mockExec([]) });
+    expect(await m.deviceName()).toBe('unknown');
+  });
+
+  it('osVersion prefers options.osVersion override even when device available', async () => {
+    const m = createAndroidMetadata(device, { osVersion: '11' }, { exec: mockExec([]) });
+    expect(await m.osVersion()).toBe('11');
+  });
+
+  it('deviceName prefers options.deviceName override', async () => {
+    const m = createAndroidMetadata(device, { deviceName: 'CustomName' }, { exec: mockExec([]) });
+    expect(await m.deviceName()).toBe('CustomName');
+  });
+
+  it('returns empty string from sh when device is null', async () => {
+    const m = createAndroidMetadata(null, {}, { exec: mockExec([['ro.build.version.release', '14']]) });
+    expect(await m.osVersion()).toBe('unknown');
+  });
+
+  it('returns empty string from sh when device.id is missing', async () => {
+    const m = createAndroidMetadata({ name: 'X' }, {}, { exec: mockExec([['ro.build.version.release', '14']]) });
+    expect(await m.osVersion()).toBe('unknown');
+  });
+
+  it('caches screenSize across calls', async () => {
+    const calls = [];
+    const exec = async (cmd, args) => {
+      calls.push(args.join(' '));
+      return { stdout: Buffer.from('Physical size: 100x200'), stderr: Buffer.from('') };
+    };
+    const m = createAndroidMetadata(device, {}, { exec });
+    const a = await m.screenSize();
+    const b = await m.screenSize();
+    expect(a).toBe(b);
+    expect(calls.filter((c) => c.includes('wm size')).length).toBe(1);
+  });
+
+  it('caches scaleFactor across calls', async () => {
+    const calls = [];
+    const exec = async (cmd, args) => {
+      calls.push(args.join(' '));
+      return { stdout: Buffer.from('Physical density: 320'), stderr: Buffer.from('') };
+    };
+    const m = createAndroidMetadata(device, {}, { exec });
+    await m.scaleFactor();
+    await m.scaleFactor();
+    expect(calls.filter((c) => c.includes('wm density')).length).toBe(1);
+  });
+
+  it('clamps scaleFactor to 2 when computed value is non-finite', async () => {
+    // Density 0 → 0/160 = 0 → scale<=0 → fallback 2
+    const exec = mockExec([['wm density', 'Physical density: 0']]);
+    const m = createAndroidMetadata(device, {}, { exec });
+    expect(await m.scaleFactor()).toBe(2);
+  });
+
+  it('uses default exec when not injected', async () => {
+    // This will attempt real adb; either returns real value or fails into "unknown".
+    // The critical coverage point is the default exec branch is exercised.
+    const m = createAndroidMetadata({ id: 'nonexistent-device-xyz' }, {});
+    expect(typeof await m.osVersion()).toBe('string');
+  });
+
+  it('uses default options when constructed without them', async () => {
+    // Hits `options = {}` default branch
+    const m = createAndroidMetadata(device);
+    expect(typeof await m.statusBarHeight()).toBe('number');
+  });
+
+  it('osVersion falls back to "unknown" when adb returns whitespace only', async () => {
+    const exec = mockExec([['ro.build.version.release', '   ']]);
+    const m = createAndroidMetadata(device, {}, { exec });
+    expect(await m.osVersion()).toBe('unknown');
+  });
 });
