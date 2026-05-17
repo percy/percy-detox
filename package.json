@@ -27,7 +27,7 @@
   },
   "scripts": {
     "lint": "eslint --ignore-path .gitignore .",
-    "test": "cross-env NODE_ENV=test jasmine --config=./test/jasmine.json",
+    "test": "cross-env NODE_ENV=test percy app:exec --testing -- jasmine --config=./test/jasmine.json",
     "test:coverage": "nyc npm test",
     "test:types": "tsd"
   },
@@ -55,6 +55,9 @@
     "jasmine-spec-reporter": "^7.0.0",
     "nyc": "^15.1.0",
     "tsd": "^0.31.2"
+  },
+  "directories": {
+    "test": "test"
   },
   "tsd": {
     "directory": "types"

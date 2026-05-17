@@ -1,7 +1,8 @@
 const utils = require('@percy/sdk-utils');
-const { GenericProvider } = require('./percy/providers/genericProvider');
+const { GenericProvider, CLIENT_INFO, ENV_INFO } = require('./percy/providers/genericProvider');
 const { classifyArg, rejectUnknownOptions } = require('./percy/util/validations');
 const postFailedEvents = require('./percy/util/postFailedEvents');
+const { TimeIt } = require('./percy/util/timing');
 const log = require('./percy/util/log');
 
 const percyScreenshot = async function percyScreenshot(deviceOrElement, name, options = {}) {
@@ -30,7 +31,7 @@ const percyScreenshot = async function percyScreenshot(deviceOrElement, name, op
   const provider = new GenericProvider(deviceOrElement, { argKind });
   let response;
   try {
-    response = await provider.screenshot(name, options);
+    response = await TimeIt.run('percyScreenshot', () => provider.screenshot(name, options));
   } catch (e) {
     log.error(`[${name}] failed to take screenshot: ${e.message}`);
     if (e.stack) log.debug(e.stack);
@@ -59,5 +60,8 @@ percyScreenshot.isDetoxDevice = function isDetoxDevice(arg) {
     return false;
   }
 };
+
+percyScreenshot.CLIENT_INFO = CLIENT_INFO;
+percyScreenshot.ENV_INFO = ENV_INFO;
 
 module.exports = percyScreenshot;

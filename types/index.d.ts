@@ -42,14 +42,6 @@ declare namespace percyScreenshot {
     testCase?: string;
     labels?: string;
     sync?: boolean;
-    /**
-     * Returns the BrowserStack session ID for the current Detox run.
-     * Primary path for POA integration since BrowserStack does not auto-inject
-     * BROWSERSTACK_SESSION_ID into the Detox test process.
-     * Return `null` explicitly to suppress env-var fallback.
-     */
-    getSessionId?: () => string | null | Promise<string | null>;
-    getBuildId?: () => string | null | Promise<string | null>;
   }
 
   interface SnapshotResponse {
@@ -59,6 +51,9 @@ declare namespace percyScreenshot {
 
   function isPercyEnabled(): Promise<boolean>;
   function isDetoxDevice(arg: unknown): arg is DetoxDevice;
+
+  const CLIENT_INFO: string;
+  const ENV_INFO: string;
 }
 
 export = percyScreenshot;

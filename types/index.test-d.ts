@@ -43,9 +43,7 @@ const opts: percyScreenshot.PercyOptions = {
   customConsiderRegions: [{ top: 0, bottom: 100, left: 0, right: 100 }],
   testCase: 'suite1',
   labels: 'foo,bar',
-  sync: false,
-  getSessionId: () => 'session-id',
-  getBuildId: async () => 'build-id'
+  sync: false
 };
 expectType<Promise<percyScreenshot.SnapshotResponse | undefined>>(
   percyScreenshot(device, 'With options', opts)
@@ -59,15 +57,13 @@ const rect: percyScreenshot.Rect = { top: 1, bottom: 2, left: 3, right: 4 };
 expectAssignable<percyScreenshot.Rect>(rect);
 expectError<percyScreenshot.Rect>({ top: 1, bottom: 2, left: 3 });
 
-// getSessionId callback may return string, null, or Promise of either
-expectAssignable<percyScreenshot.PercyOptions['getSessionId']>(() => 'sess');
-expectAssignable<percyScreenshot.PercyOptions['getSessionId']>(() => null);
-expectAssignable<percyScreenshot.PercyOptions['getSessionId']>(async () => 'sess');
-expectAssignable<percyScreenshot.PercyOptions['getSessionId']>(async () => null);
-
 // Namespace methods
 expectType<Promise<boolean>>(percyScreenshot.isPercyEnabled());
 expectType<boolean>(percyScreenshot.isDetoxDevice(device));
+
+// Re-exported client metadata constants
+expectType<string>(percyScreenshot.CLIENT_INFO);
+expectType<string>(percyScreenshot.ENV_INFO);
 
 // isDetoxDevice narrows
 const unknownArg: unknown = device;

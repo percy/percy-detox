@@ -48,8 +48,6 @@ A working example app is available at [percy/example-percy-detox](https://github
 | Android — local USB-attached real device | ✅ Same local driver as emulator |
 | iOS — local simulator | ✅ Supported |
 | iOS — local real device | ⚠️ Works in principle; uncommon |
-| Android — BrowserStack App Automate (cloud) | ⏳ Wired end-to-end, blocked on BS server-side `takeScreenshot` |
-| iOS — BrowserStack App Automate (cloud) | ❌ Detox does not support BS iOS ([wix/Detox#4694](https://github.com/wix/Detox/issues/4694)) |
 
 ## API
 
@@ -79,8 +77,6 @@ await percyScreenshot(deviceOrElement, name, options?)
 | `testCase` | `string` | Group snapshot in the Percy review UI. |
 | `labels` | `string` | Comma-separated label chips for the snapshot. |
 | `sync` | `boolean` | Block until the Percy build finalizes. |
-| `getSessionId` | `() => string \| null \| Promise<string \| null>` | Resolve BrowserStack session ID for the debug-URL link. |
-| `getBuildId` | `() => string \| null \| Promise<string \| null>` | Resolve BrowserStack build ID. |
 
 **Coordinate space:** all region options accept **point** coordinates. The SDK multiplies by the device scale factor automatically. Do not pre-multiply.
 
@@ -116,23 +112,17 @@ await percyScreenshot(device, 'Login screen', { testCase: 'auth-suite' });
 | `PERCY_TOKEN` | Required. App-type Percy project token (starts with `app_`). |
 | `PERCY_IGNORE_ERRORS` | If `'true'`, screenshot failures are logged and swallowed instead of failing the test. |
 | `PERCY_LOGLEVEL` | `silent`, `info`, `debug`. Defaults to `info`. |
-| `BROWSERSTACK_SESSION_ID` | Fallback for `getSessionId` callback. |
-| `BROWSERSTACK_BUILD_ID` | Fallback for `getBuildId` callback. |
+| `PERCY_METRICS` | If `'true'`, collect per-screenshot timing telemetry. |
 
-## BrowserStack App Automate
+## Debugging
 
-BrowserStack runs Detox Android tests on real devices. Percy shows a debug-URL link to the BrowserStack session when both session ID and build ID are available. Because BrowserStack does **not** auto-inject these into the Detox test process, pass them via callbacks:
+If you run into issues, the first place to look is the [Debugging SDKs](https://www.browserstack.com/docs/percy/integrate/percy-sdk-workflow#debugging-sdks) guide — it covers log levels, common setup gotchas, and how to gather logs for a bug report.
 
-```js
-await percyScreenshot(device, 'Home', {
-  getSessionId: async () => process.env.MY_BS_SESSION_ID || null,
-  getBuildId: async () => process.env.MY_BS_BUILD_ID || null
-});
+To enable verbose output:
+
+```sh
+PERCY_LOGLEVEL=debug npx percy app:exec -- npx detox test -c android.emu.debug
 ```
-
-Returning explicit `null` from a callback suppresses the env-var fallback. iOS POA is **not supported** — Detox does not run on BrowserStack real iOS devices.
-
-> **Note (current BrowserStack limitation):** As of the latest `@browserstack/detox` cloud build, the cloud Android driver's `takeScreenshot` is a stub that returns an empty string. The `@percy/detox` SDK and example repo are wired end-to-end against BS cloud — the moment BrowserStack ships server-side screenshot capture, Percy builds will start producing on cloud devices with no SDK changes required.
 
 ## Migration from `@percy/appium-app`
 
