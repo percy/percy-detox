@@ -169,4 +169,190 @@ describe('iosMetadata', () => {
     expect(await m.statusBarHeight()).toBe(0);
     expect(await m.navigationBarHeight()).toBe(0);
   });
+
+  it('status/nav bar heights honor option overrides', async () => {
+    const m = createIosMetadata(
+      { id: 'UDID-A' },
+      { statusBarHeight: 47, navigationBarHeight: 12 },
+      { exec: execReturning(SIMCTL_JSON) }
+    );
+    expect(await m.statusBarHeight()).toBe(47);
+    expect(await m.navigationBarHeight()).toBe(12);
+  });
+
+  it('osVersion prefers options.osVersion override', async () => {
+    const m = createIosMetadata(
+      { id: 'UDID-A' },
+      { osVersion: '15.0' },
+      { exec: execReturning(SIMCTL_JSON) }
+    );
+    expect(await m.osVersion()).toBe('15.0');
+  });
+
+  it('deviceName falls back to device.name when not in simctl and no option', async () => {
+    const m = createIosMetadata(
+      { id: 'UDID-MISSING', name: 'My iPhone' },
+      {},
+      { exec: execReturning(SIMCTL_JSON) }
+    );
+    expect(await m.deviceName()).toBe('My iPhone');
+  });
+
+  it('scaleFactor warns and falls back to 2 for unusually small PNG widths', async () => {
+    const m = createIosMetadata(
+      { id: 'UDID-A' },
+      {},
+      {
+        exec: execReturning(SIMCTL_JSON),
+        readFile: async () => pngBufferWithDims(200, 400) // < 320 triggers small-PNG branch
+      }
+    );
+    expect(await m.scaleFactor('/tmp/tiny.png')).toBe(2);
+  });
+
+  it('handles iOS runtime keys without minor version', async () => {
+    const exec = execReturning(JSON.stringify({
+      devices: { 'com.apple.CoreSimulator.SimRuntime.iOS-17': [{ udid: 'X', name: 'iP' }] }
+    }));
+    const m = createIosMetadata({ id: 'X' }, {}, { exec });
+    expect(await m.osVersion()).toBe('17');
+  });
+
+  it('returns unknown when simctl JSON has unexpected shape', async () => {
+    const exec = execReturning('{}');
+    const m = createIosMetadata({ id: 'X' }, {}, { exec });
+    expect(await m.osVersion()).toBe('unknown');
+  });
+
+  it('handles missing device.id when looking up simctl info', async () => {
+    const m = createIosMetadata(null, {}, { exec: execReturning(SIMCTL_JSON) });
+    expect(await m.osVersion()).toBe('unknown');
+    expect(await m.deviceName()).toBe('unknown');
+  });
+
+  it('caches simctlInfo across calls', async () => {
+    let calls = 0;
+    const exec = async () => { calls++; return { stdout: Buffer.from(SIMCTL_JSON), stderr: Buffer.from('') }; };
+    const m = createIosMetadata({ id: 'UDID-A' }, {}, { exec });
+    await m.osVersion();
+    await m.deviceName();
+    await m.osVersion();
+    expect(calls).toBe(1);
+  });
+
+  it('scaleFactor returns 2 when pngPath is missing', async () => {
+    const m = createIosMetadata({ id: 'UDID-A' }, {}, { exec: execReturning(SIMCTL_JSON) });
+    expect(await m.scaleFactor()).toBe(2);
+  });
+
+  it('handles simctl returning undefined devices array', async () => {
+    const exec = execReturning(JSON.stringify({ devices: { 'iOS-17': null } }));
+    const m = createIosMetadata({ id: 'A' }, {}, { exec });
+    expect(await m.osVersion()).toBe('unknown');
+  });
+
+  it('uses default deps when third arg omitted', async () => {
+    // Hits the `{ exec = defaultExec, readFile = fs.readFile } = {}` default branch
+    const m = createIosMetadata({ id: 'X' });
+    // simctl will probably fail on a CI runner without xcrun; either way osName is sync
+    expect(await m.osName()).toBe('iOS');
+  });
+
+  it('handles missing match.name in simctl response', async () => {
+    const exec = execReturning(JSON.stringify({
+      devices: { 'iOS-17-0': [{ udid: 'A' }] } // no name
+    }));
+    const m = createIosMetadata({ id: 'A' }, {}, { exec });
+    expect(await m.deviceName()).toBe('unknown');
+  });
+
+  it('matches runtime key with explicit minor version', async () => {
+    const exec = execReturning(JSON.stringify({
+      devices: { 'com.apple.CoreSimulator.SimRuntime.iOS-16-4': [{ udid: 'A', name: 'X' }] }
+    }));
+    const m = createIosMetadata({ id: 'A' }, {}, { exec });
+    expect(await m.osVersion()).toBe('16');
+  });
+
+  it('runtime key without iOS prefix does not produce a version', async () => {
+    const exec = execReturning(JSON.stringify({
+      devices: { 'com.apple.CoreSimulator.SimRuntime.tvOS-17-0': [{ udid: 'A', name: 'X' }] }
+    }));
+    const m = createIosMetadata({ id: 'A' }, {}, { exec });
+    expect(await m.osVersion()).toBe('unknown');
+  });
+
+  it('parsePngDims rejects buffer that is too small', async () => {
+    const m = createIosMetadata(
+      { id: 'A' },
+      {},
+      {
+        exec: execReturning(SIMCTL_JSON),
+        readFile: async () => Buffer.alloc(10) // too small
+      }
+    );
+    expect(await m.scaleFactor('/p')).toBe(2);
+  });
+
+  it('parsePngDims rejects non-PNG magic bytes', async () => {
+    const m = createIosMetadata(
+      { id: 'A' },
+      {},
+      {
+        exec: execReturning(SIMCTL_JSON),
+        readFile: async () => Buffer.alloc(50)
+      }
+    );
+    expect(await m.scaleFactor('/p')).toBe(2);
+  });
+
+  it('screenSize falls back to 0x0 when PNG dims invalid', async () => {
+    const m = createIosMetadata(
+      { id: 'A' },
+      {},
+      {
+        exec: execReturning(SIMCTL_JSON),
+        readFile: async () => Buffer.alloc(10) // too small
+      }
+    );
+    expect(await m.screenSize('/p')).toEqual({ width: 0, height: 0 });
+  });
+
+  it('screenSize uses default scaleFactor 2 when not pre-primed', async () => {
+    const m = createIosMetadata(
+      { id: 'A' },
+      {},
+      {
+        exec: execReturning(SIMCTL_JSON),
+        readFile: async () => pngBufferWithDims(828, 1792)
+      }
+    );
+    // Direct call without priming scaleFactor first
+    const size = await m.screenSize('/p');
+    expect(size).toEqual({ width: 414, height: 896 });
+  });
+
+  it('screenSize keys default to "unknown-ios" when device missing', async () => {
+    const m = createIosMetadata(
+      null,
+      {},
+      {
+        exec: execReturning(SIMCTL_JSON),
+        readFile: async () => pngBufferWithDims(828, 1792)
+      }
+    );
+    expect(await m.screenSize('/p')).toEqual({ width: 414, height: 896 });
+  });
+
+  it('scaleFactor key falls back to "unknown-ios" when device.id is missing', async () => {
+    const m = createIosMetadata(
+      { /* no id */ },
+      {},
+      {
+        exec: execReturning(SIMCTL_JSON),
+        readFile: async () => pngBufferWithDims(1170, 2532)
+      }
+    );
+    expect(await m.scaleFactor('/p')).toBe(3);
+  });
 });
