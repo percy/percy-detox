@@ -3,7 +3,6 @@ const { Tile } = require('../util/tile');
 const log = require('../util/log');
 const { resolveMetadata } = require('../metadata/resolveMetadata');
 const { findRegions } = require('../regions/findRegions');
-const { resolveDebugUrl } = require('./resolveDebugUrl');
 const { copyToSdkTmp, validatePng } = require('../util/tmp');
 const { warnFullPageOnce } = require('../util/log');
 
@@ -64,8 +63,6 @@ class GenericProvider {
       fullscreen: options.fullscreen || false
     });
 
-    const externalDebugUrl = await resolveDebugUrl(options);
-
     log.debug(`[${name}] tag=${JSON.stringify(tag)}`);
     log.debug(`[${name}] scaleFactor=${scaleFactor} ignore=${ignoreRegions.length} consider=${considerRegions.length}`);
 
@@ -73,7 +70,6 @@ class GenericProvider {
       name,
       tag,
       tiles: [tile],
-      externalDebugUrl,
       ignoredElementsData: { ignoreElementsData: ignoreRegions },
       consideredElementsData: { considerElementsData: considerRegions },
       environmentInfo: ENV_INFO,
@@ -106,4 +102,4 @@ function resolveGlobalDevice() {
   }
 }
 
-module.exports = { GenericProvider };
+module.exports = { GenericProvider, CLIENT_INFO, ENV_INFO };

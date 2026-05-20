@@ -97,7 +97,6 @@ function createIosMetadata(device, options = {}, { exec = defaultExec, readFile 
         scale = 2;
         log.warn(`iOS scaleFactor: PNG width ${dims.width} is unusually small; defaulting to 2x`);
       }
-      if (!Number.isFinite(scale) || scale <= 0) scale = 2;
       MODULE_STATE.scaleCache.set(key, scale);
       return scale;
     }

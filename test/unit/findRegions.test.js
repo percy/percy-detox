@@ -122,6 +122,84 @@ describe('findRegions', () => {
     );
     expect(regions).toEqual([]);
   });
+
+  it('skips id-based regions when Detox module is unavailable', async () => {
+    const regions = await findRegions(
+      { kind: 'ignore', scaleFactor: 2, options: { ignoreRegionIds: ['hero'] } },
+      { getDetox: () => null }
+    );
+    expect(regions).toEqual([]);
+  });
+
+  it('skips id-based regions when Detox.element is missing', async () => {
+    const regions = await findRegions(
+      { kind: 'ignore', scaleFactor: 2, options: { ignoreRegionIds: ['hero'] } },
+      { getDetox: () => ({ by: { id: () => ({}) } }) } // no element fn
+    );
+    expect(regions).toEqual([]);
+  });
+
+  it('catches when element.getAttributes throws', async () => {
+    const el = {
+      getAttributes: async () => { throw new Error('detached'); }
+    };
+    const regions = await findRegions(
+      { kind: 'ignore', scaleFactor: 1, options: { ignoreRegionElements: [el] } },
+      { getDetox: () => null }
+    );
+    expect(regions).toEqual([]);
+  });
+
+  it('uses defaultGetDetox when no deps.getDetox provided', async () => {
+    // Forces the defaultGetDetox path; detox is not installed in test env so it returns null.
+    const regions = await findRegions(
+      { kind: 'ignore', scaleFactor: 1, options: {} }
+    );
+    expect(regions).toEqual([]);
+  });
+
+  it('skips id-based regions when Detox.by is missing', async () => {
+    const regions = await findRegions(
+      { kind: 'ignore', scaleFactor: 1, options: { ignoreRegionIds: ['x'] } },
+      { getDetox: () => ({ element: () => ({}) }) } // no by
+    );
+    expect(regions).toEqual([]);
+  });
+
+  it('skips id-based regions when Detox.by.id is not a function', async () => {
+    const regions = await findRegions(
+      { kind: 'ignore', scaleFactor: 1, options: { ignoreRegionIds: ['x'] } },
+      { getDetox: () => ({ element: () => ({}), by: { id: 'not-a-fn' } }) }
+    );
+    expect(regions).toEqual([]);
+  });
+
+  it('skips when extracted frame is null (id resolves but no frame)', async () => {
+    const detox = {
+      by: { id: (id) => ({ __id: id }) },
+      element: () => ({ getAttributes: async () => ({ /* no frame */ }) })
+    };
+    const regions = await findRegions(
+      { kind: 'ignore', scaleFactor: 1, options: { ignoreRegionIds: ['x'] } },
+      { getDetox: () => detox }
+    );
+    expect(regions).toEqual([]);
+  });
+
+  it('skips when element returns no frame', async () => {
+    const el = { getAttributes: async () => ({ label: 'no frame' }) };
+    const regions = await findRegions(
+      { kind: 'ignore', scaleFactor: 1, options: { ignoreRegionElements: [el] } },
+      { getDetox: () => null }
+    );
+    expect(regions).toEqual([]);
+  });
+
+  it('frameToRegion treats non-finite x/y/width/height as 0', () => {
+    const { frameToRegion } = require('../../percy/regions/findRegions');
+    const region = frameToRegion('x', { x: 'a', y: NaN, width: undefined, height: 'b' }, 1);
+    expect(region.coOrdinates).toEqual({ top: 0, left: 0, bottom: 0, right: 0 });
+  });
 });
 
 describe('extractFrame', () => {

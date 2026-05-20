@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        node: [18, 20]
+        node: [20, 22]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions-ecosystem/action-regex-match@v2
@@ -48,4 +48,4 @@ jobs:
           cd "$WORKSPACE"
           npm link @percy/cli
           npx percy --version
-      - run: npm test
+      - run: npm run test:coverage

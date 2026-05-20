@@ -48,6 +48,21 @@ describe('copyToSdkTmp', () => {
   });
 });
 
+describe('copyToSdkTmp tmp.file errors', () => {
+  it('rejects when tmp.file callback fires an error', async () => {
+    const tmp = require('tmp');
+    const original = tmp.file;
+    tmp.file = (_opts, cb) => cb(new Error('disk full'));
+    try {
+      const src = await mkTmpFile('src2', PNG_HEADER);
+      await expectAsync(copyToSdkTmp(src)).toBeRejectedWithError(/disk full/);
+      await fs.unlink(src).catch(() => {});
+    } finally {
+      tmp.file = original;
+    }
+  });
+});
+
 describe('validatePng', () => {
   it('accepts a valid PNG header', async () => {
     const p = await mkTmpFile('png', PNG_HEADER);
