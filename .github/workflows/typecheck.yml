@@ -1,5 +1,7 @@
 name: Typecheck
 on: push
+permissions:
+  contents: read
 jobs:
   typecheck:
     name: Typecheck
