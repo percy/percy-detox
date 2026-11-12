@@ -48,6 +48,7 @@ A working example app is available at [percy/example-percy-detox](https://github
 | Android — local USB-attached real device | ✅ Same local driver as emulator |
 | iOS — local simulator | ✅ Supported |
 | iOS — local real device | ⚠️ Works in principle; uncommon |
+| Android — BrowserStack App Automate (`android.cloud`) | ✅ Element capture of the app window (see below) |
 
 ## API
 
@@ -77,6 +78,9 @@ await percyScreenshot(deviceOrElement, name, options?)
 | `testCase` | `string` | Group snapshot in the Percy review UI. |
 | `labels` | `string` | Comma-separated label chips for the snapshot. |
 | `sync` | `boolean` | Block until the Percy build finalizes. |
+| `screenshotMode` | `'auto' \| 'device' \| 'element'` | `auto` (default) uses element capture on cloud devices and device capture elsewhere. |
+| `rootTestID` | `string` | testID of the view to capture in element mode. Required on iOS. |
+| `scaleFactor` | `number` | Region scale override. Cloud devices default to `1`. |
 
 **Coordinate space:** all region options accept **point** coordinates. The SDK multiplies by the device scale factor automatically. Do not pre-multiply.
 
@@ -105,6 +109,20 @@ await percyScreenshot(device, 'Dashboard', {
 await percyScreenshot(device, 'Login screen', { testCase: 'auth-suite' });
 ```
 
+## BrowserStack App Automate
+
+BrowserStack's Detox driver (`@browserstack/detox`, device type `android.cloud`) runs your tests on your machine and drives a real device over a websocket. Its `device.takeScreenshot()` returns an empty path, because there is no adb connection back to your machine. Element screenshots still work: they run as an Espresso action inside the app and come back over the same websocket.
+
+So on cloud devices `percyScreenshot(device, ...)` captures the app's root view (the window DecorView) instead of the device screen:
+
+- The system status bar is not captured, so clock and battery changes don't cause diffs.
+- The device tag comes from the Detox device config (`device.name`, `device.osVersion`) unless you pass `deviceName` / `osVersion`.
+- Single-page only.
+
+```sh
+npx percy app:exec -- npx detox test -c android.cloud.debug
+```
+
 ## Configuration
 
 | Environment variable | Effect |
@@ -113,6 +131,8 @@ await percyScreenshot(device, 'Login screen', { testCase: 'auth-suite' });
 | `PERCY_IGNORE_ERRORS` | If `'true'`, screenshot failures are logged and swallowed instead of failing the test. |
 | `PERCY_LOGLEVEL` | `silent`, `info`, `debug`. Defaults to `info`. |
 | `PERCY_METRICS` | If `'true'`, collect per-screenshot timing telemetry. |
+| `PERCY_DETOX_SCREENSHOT_MODE` | Default for `screenshotMode`. |
+| `PERCY_DETOX_ROOT_TEST_ID` | Default for `rootTestID`. |
 
 ## Debugging
 

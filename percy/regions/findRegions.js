@@ -8,7 +8,7 @@ function defaultGetDetox() {
   }
 }
 
-async function findRegions({ kind, scaleFactor, options }, deps = {}) {
+async function findRegions({ kind, scaleFactor, options, origin }, deps = {}) {
   const getDetox = deps.getDetox || defaultGetDetox;
   const detox = getDetox();
 
@@ -27,7 +27,7 @@ async function findRegions({ kind, scaleFactor, options }, deps = {}) {
       }
       const attrs = await detox.element(detox.by.id(id)).getAttributes();
       const frame = extractFrame(attrs, `id: ${id}`);
-      if (frame) out.push(frameToRegion(`id: ${id}`, frame, scaleFactor));
+      if (frame) out.push(frameToRegion(`id: ${id}`, frame, scaleFactor, origin));
     } catch (e) {
       log.info(`Detox id '${id}' not resolvable: ${e.message}`);
     }
@@ -42,7 +42,7 @@ async function findRegions({ kind, scaleFactor, options }, deps = {}) {
       }
       const attrs = await el.getAttributes();
       const frame = extractFrame(attrs, `element[${i}]`);
-      if (frame) out.push(frameToRegion(`element[${i}]`, frame, scaleFactor));
+      if (frame) out.push(frameToRegion(`element[${i}]`, frame, scaleFactor, origin));
     } catch (e) {
       log.info(`${prefix}RegionElements[${i}] getAttributes failed: ${e.message}`);
     }
@@ -86,15 +86,19 @@ function extractFrame(attrs, label) {
   return attrs.frame || null;
 }
 
-function frameToRegion(selector, frame, scaleFactor) {
+// `origin` is the captured element's frame origin (same units as `frame`). Element
+// captures start at that origin, so regions must be made relative to it.
+function frameToRegion(selector, frame, scaleFactor, origin = { x: 0, y: 0 }) {
   const s = Number.isFinite(scaleFactor) && scaleFactor > 0 ? scaleFactor : 1;
+  const x = toPixel(frame.x) - toPixel(origin?.x);
+  const y = toPixel(frame.y) - toPixel(origin?.y);
   return {
     selector,
     coOrdinates: {
-      top: toPixel(frame.y) * s,
-      bottom: (toPixel(frame.y) + toPixel(frame.height)) * s,
-      left: toPixel(frame.x) * s,
-      right: (toPixel(frame.x) + toPixel(frame.width)) * s
+      top: y * s,
+      bottom: (y + toPixel(frame.height)) * s,
+      left: x * s,
+      right: (x + toPixel(frame.width)) * s
     }
   };
 }
