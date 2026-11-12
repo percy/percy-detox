@@ -42,6 +42,12 @@ declare namespace percyScreenshot {
     testCase?: string;
     labels?: string;
     sync?: boolean;
+    /** `auto` (default): element capture on cloud devices, device capture otherwise. */
+    screenshotMode?: 'auto' | 'device' | 'element';
+    /** testID of the view to capture in element mode. Required on iOS. */
+    rootTestID?: string;
+    /** Region scale factor override. Cloud devices default to 1. */
+    scaleFactor?: number;
   }
 
   interface SnapshotResponse {
