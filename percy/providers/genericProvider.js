@@ -11,7 +11,7 @@ const { getDetox, detoxDeviceConfig, isCloudDevice } = require('../util/detox');
 const SDK_PKG = require('../../package.json');
 const CLIENT_INFO = `${SDK_PKG.name}/${SDK_PKG.version}`;
 
-const SCREENSHOT_MODES = ['auto', 'device', 'element'];
+const SCREENSHOT_MODES = ['auto', 'device', 'element', 'cloud'];
 const ANDROID_ROOT_VIEW_CLASS = 'android.widget.FrameLayout';
 
 function safeDetoxVersion() {
@@ -46,8 +46,10 @@ class GenericProvider {
 
       const scaleFactor = await this.metadata.scaleFactor(sdkPath);
       const tag = await this.buildTag(sdkPath);
-      const ignoreRegions = await findRegions({ kind: 'ignore', scaleFactor, options, origin: shot.origin });
-      const considerRegions = await findRegions({ kind: 'consider', scaleFactor, options, origin: shot.origin });
+      const elementScaleFactor = elementScaleFor(tag.osName, scaleFactor);
+      const regionArgs = { scaleFactor, elementScaleFactor, options, origin: shot.origin };
+      const ignoreRegions = await findRegions({ kind: 'ignore', ...regionArgs });
+      const considerRegions = await findRegions({ kind: 'consider', ...regionArgs });
 
       // Send bytes, not a path: the Percy CLI may not share this filesystem, and it
       // uploads after this call returns.
@@ -86,6 +88,7 @@ class GenericProvider {
   // element → element.takeScreenshot() on the app's root view; travels over the
   //           Detox websocket, so it works on BrowserStack App Automate
   // auto    → element on cloud devices, device otherwise (falls back to element)
+  // cloud   → handled by AppAutomateProvider; reaching here means it was unavailable
   async capture(name, options) {
     if (this.argKind === 'element') {
       return {
@@ -95,9 +98,12 @@ class GenericProvider {
       };
     }
 
-    const mode = options.screenshotMode || process.env.PERCY_DETOX_SCREENSHOT_MODE || 'auto';
-    if (!SCREENSHOT_MODES.includes(mode)) {
-      throw new TypeError(`@percy/detox: screenshotMode must be one of ${SCREENSHOT_MODES.join(', ')}`);
+    const mode = screenshotMode(options);
+    if (mode === 'cloud') {
+      throw new Error(
+        "@percy/detox: screenshotMode 'cloud' needs an android.cloud device from a " +
+        '@browserstack/detox build that has device.cloudPlatform'
+      );
     }
 
     if (mode === 'device' || (mode === 'auto' && !isCloudDevice(this.deviceConfig))) {
@@ -144,6 +150,20 @@ class GenericProvider {
   }
 }
 
+function screenshotMode(options = {}) {
+  const mode = options.screenshotMode || process.env.PERCY_DETOX_SCREENSHOT_MODE || 'auto';
+  if (!SCREENSHOT_MODES.includes(mode)) {
+    throw new TypeError(`@percy/detox: screenshotMode must be one of ${SCREENSHOT_MODES.join(', ')}`);
+  }
+  return mode;
+}
+
+// Detox Android reports getAttributes().frame in screen pixels, so element regions
+// must not be multiplied by density. iOS frames are points and do need scaling.
+function elementScaleFor(osName, scaleFactor) {
+  return osName === 'Android' ? 1 : scaleFactor;
+}
+
 async function frameOrigin(element) {
   try {
     const attrs = await element.getAttributes();
@@ -160,4 +180,4 @@ function resolveGlobalDevice(getDetoxFn) {
   return detox && detox.device ? detox.device : null;
 }
 
-module.exports = { GenericProvider, CLIENT_INFO, ENV_INFO };
+module.exports = { GenericProvider, CLIENT_INFO, ENV_INFO, screenshotMode, elementScaleFor };

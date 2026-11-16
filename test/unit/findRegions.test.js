@@ -17,6 +17,38 @@ function makeDetox(map = {}) {
 }
 
 describe('findRegions', () => {
+  it('scales element frames by elementScaleFactor and custom rects by scaleFactor', async () => {
+    const detox = makeDetox({ hero: { frame: { x: 10, y: 20, width: 100, height: 50 } } });
+    const el = { getAttributes: async () => ({ frame: { x: 1, y: 2, width: 3, height: 4 } }) };
+    const regions = await findRegions(
+      {
+        kind: 'ignore',
+        scaleFactor: 3,
+        elementScaleFactor: 1,
+        options: {
+          ignoreRegionIds: ['hero'],
+          ignoreRegionElements: [el],
+          customIgnoreRegions: [{ top: 1, bottom: 2, left: 3, right: 4 }]
+        }
+      },
+      { getDetox: () => detox }
+    );
+    expect(regions.map((r) => r.coOrdinates)).toEqual([
+      { top: 20, bottom: 70, left: 10, right: 110 },
+      { top: 2, bottom: 6, left: 1, right: 4 },
+      { top: 3, bottom: 6, left: 9, right: 12 }
+    ]);
+  });
+
+  it('defaults elementScaleFactor to scaleFactor (iOS: frames are points)', async () => {
+    const el = { getAttributes: async () => ({ frame: { x: 1, y: 2, width: 3, height: 4 } }) };
+    const regions = await findRegions(
+      { kind: 'consider', scaleFactor: 2, options: { considerRegionElements: [el] } },
+      { getDetox: () => null }
+    );
+    expect(regions[0].coOrdinates).toEqual({ top: 4, bottom: 12, left: 2, right: 8 });
+  });
+
   it('resolves id-based regions and scales by scaleFactor', async () => {
     const detox = makeDetox({
       hero: { frame: { x: 10, y: 20, width: 100, height: 50 } }
