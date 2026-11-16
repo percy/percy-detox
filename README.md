@@ -126,8 +126,8 @@ npx percy app:exec -- npx detox test -c android.cloud.debug
 
 How `percyScreenshot(device, ...)` captures on App Automate:
 
-1. **Full-screen capture on the BrowserStack host** (`@browserstack/detox` 20.51.3-cloud.2 or later). The SDK asks the host over Detox's cloud channel (`device.cloudPlatform('percyScreenshot', ...)`). The host takes the screenshot with adb and uploads it to Percy. The snapshot links back to the App Automate session.
-2. **Element capture of the app window** otherwise. The SDK captures the app's root view (the window DecorView) with an Espresso element screenshot. The system status bar is not in the image, so clock and battery changes don't cause diffs. The SDK uses this mode when:
+1. **Full-screen capture on the BrowserStack host** (`@browserstack/detox` 20.51.3-cloud.2 or later). The SDK asks the host over Detox's cloud channel (`device.cloudPlatform('percyScreenshot', ...)`). The host takes the screenshot with adb and uploads it to Percy. The snapshot links back to the App Automate session. The image includes the system status and navigation bars; the host reports their heights, and Percy excludes those bands from the diff, so clock and battery changes don't cause diffs. Pass `statusBarHeight` / `navigationBarHeight` (pixels) to override the reported heights.
+2. **Element capture of the app window** otherwise. The SDK captures the app's root view (the window DecorView) with an Espresso element screenshot. The system bars are not in the image at all, so the snapshot is the app window only. The SDK uses this mode when:
    - the installed `@browserstack/detox` has no `device.cloudPlatform` (older builds), or
    - the host says `percyScreenshot` is not supported, or a tile comes back without a sha. The SDK logs this once and uses element capture for the rest of the run.
 

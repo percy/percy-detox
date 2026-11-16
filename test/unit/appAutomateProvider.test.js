@@ -152,9 +152,9 @@ describe('AppAutomateProvider', () => {
     expect(tile.sha).toBe('abc123');
     expect(tile.filepath).toBeUndefined();
     expect(tile.content).toBeUndefined();
-    // Host-reported bars are ignored: only options set them.
-    expect(tile.statusBarHeight).toBe(0);
-    expect(tile.navBarHeight).toBe(0);
+    // Host-reported system bar heights (px) are used.
+    expect(tile.statusBarHeight).toBe(80);
+    expect(tile.navBarHeight).toBe(120);
     expect(payload.tag).toEqual({
       name: 'Samsung Galaxy S22',
       osName: 'Android',
@@ -188,6 +188,23 @@ describe('AppAutomateProvider', () => {
     expect(tiles[0].statusBarHeight).toBe(70);
     expect(tiles[0].navBarHeight).toBe(90);
     expect(tiles[0].fullscreen).toBe(true);
+  });
+
+  it('uses 0 bar heights when the host could not read them', async () => {
+    const tiles = [{ sha: 'abc123', status_bar: null, nav_bar: undefined, header_height: 0, footer_height: 0 }];
+    const device = makeDevice({ screenshot: { ...SHOT, result: { ...SHOT.result, tiles } } });
+    await makeProvider(device).screenshot('Home', {});
+    const tile = postComparisonSpy.calls.mostRecent().args[0].tiles[0];
+    expect(tile.statusBarHeight).toBe(0);
+    expect(tile.navBarHeight).toBe(0);
+  });
+
+  it('lets an explicit 0 option override host bar heights', async () => {
+    const device = makeDevice();
+    await makeProvider(device).screenshot('Home', { statusBarHeight: 0, navigationBarHeight: 0 });
+    const tile = postComparisonSpy.calls.mostRecent().args[0].tiles[0];
+    expect(tile.statusBarHeight).toBe(0);
+    expect(tile.navBarHeight).toBe(0);
   });
 
   it('parses a JSON-string result', async () => {

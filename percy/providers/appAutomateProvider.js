@@ -160,8 +160,9 @@ function buildTiles(shot, options) {
     }
     return new Tile({
       sha: t.sha.split('-')[0], // drop the build id suffix, as percy-appium-js does
-      statusBarHeight: options.statusBarHeight || 0,
-      navBarHeight: options.navigationBarHeight || 0,
+      // adb captures the system bars; their heights let Percy exclude them from the diff.
+      statusBarHeight: options.statusBarHeight ?? t.status_bar ?? 0,
+      navBarHeight: options.navigationBarHeight ?? t.nav_bar ?? 0,
       headerHeight: t.header_height,
       footerHeight: t.footer_height,
       fullscreen: options.fullscreen || false
