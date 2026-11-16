@@ -36,7 +36,7 @@
     "tmp": "^0.2.3"
   },
   "peerDependencies": {
-    "detox": ">=20.32.0"
+    "detox": ">=20.32.0 || ~20.51.3-cloud.0"
   },
   "peerDependenciesMeta": {
     "detox": {
