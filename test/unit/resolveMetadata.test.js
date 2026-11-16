@@ -197,3 +197,66 @@ describe('createFallbackMetadata', () => {
     expect(calls).toBe(1);
   });
 });
+
+describe('createCloudMetadata', () => {
+  const { createCloudMetadata } = require('../../percy/metadata/resolveMetadata');
+  const png = (w, h) => {
+    const b = Buffer.alloc(24);
+    Buffer.from([0x89, 0x50, 0x4E, 0x47]).copy(b);
+    b.writeUInt32BE(w, 16);
+    b.writeUInt32BE(h, 20);
+    return b;
+  };
+
+  it('is selected for cloud device configs', async () => {
+    const device = { getPlatform: async () => 'android' };
+    const md = await resolveMetadata(device, {}, { deviceConfig: { type: 'android.cloud', name: 'S22', osVersion: 12 } });
+    expect(await md.osName()).toBe('Android');
+    expect(await md.deviceName()).toBe('S22');
+    expect(await md.osVersion()).toBe('12');
+  });
+
+  it('uses defaults with no options or config', async () => {
+    const md = createCloudMetadata('ios');
+    expect(await md.osName()).toBe('iOS');
+    expect(await md.deviceName()).toBe('unknown');
+    expect(await md.osVersion()).toBe('unknown');
+    expect(await md.orientation()).toBe('portrait');
+    expect(await md.statusBarHeight()).toBe(0);
+    expect(await md.navigationBarHeight()).toBe(0);
+    expect(await md.scaleFactor()).toBe(1);
+    expect(await md.screenSize()).toEqual({ width: 360, height: 640 });
+  });
+
+  it('prefers options', async () => {
+    const md = createCloudMetadata('android', {
+      deviceName: 'Mine',
+      osVersion: '13',
+      orientation: 'landscape',
+      statusBarHeight: 5,
+      navigationBarHeight: 6,
+      scaleFactor: 2.625
+    }, { deviceConfig: { name: 'S22', osVersion: '12' } });
+    expect(await md.deviceName()).toBe('Mine');
+    expect(await md.osVersion()).toBe('13');
+    expect(await md.orientation()).toBe('landscape');
+    expect(await md.statusBarHeight()).toBe(5);
+    expect(await md.navigationBarHeight()).toBe(6);
+    expect(await md.scaleFactor()).toBe(2.625);
+  });
+
+  it('reads the size from the PNG, falling back on bad input', async () => {
+    const md = (buf) => createCloudMetadata('android', {}, { readFile: async () => buf });
+    expect(await md(png(1080, 2340)).screenSize('x.png')).toEqual({ width: 1080, height: 2340 });
+    expect(await md(png(0, 10)).screenSize('x.png')).toEqual({ width: 360, height: 640 });
+    expect(await md(null).screenSize('x.png')).toEqual({ width: 360, height: 640 });
+    expect(await md(Buffer.alloc(30)).screenSize('x.png')).toEqual({ width: 360, height: 640 });
+    const failing = createCloudMetadata('android', {}, { readFile: async () => { throw new Error('EIO'); } });
+    expect(await failing.screenSize('x.png')).toEqual({ width: 360, height: 640 });
+  });
+
+  it('ignores invalid scaleFactor overrides', async () => {
+    expect(await createCloudMetadata('android', { scaleFactor: 'abc' }).scaleFactor()).toBe(1);
+    expect(await createCloudMetadata('android', { scaleFactor: -2 }).scaleFactor()).toBe(1);
+  });
+});

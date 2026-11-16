@@ -1,5 +1,6 @@
 const utils = require('@percy/sdk-utils');
-const { GenericProvider, CLIENT_INFO, ENV_INFO } = require('./percy/providers/genericProvider');
+const { CLIENT_INFO, ENV_INFO } = require('./percy/providers/genericProvider');
+const { resolveProvider } = require('./percy/providers/providerResolver');
 const { classifyArg, rejectUnknownOptions } = require('./percy/util/validations');
 const postFailedEvents = require('./percy/util/postFailedEvents');
 const { TimeIt } = require('./percy/util/timing');
@@ -28,9 +29,9 @@ const percyScreenshot = async function percyScreenshot(deviceOrElement, name, op
     return undefined;
   }
 
-  const provider = new GenericProvider(deviceOrElement, { argKind });
   let response;
   try {
+    const provider = resolveProvider(deviceOrElement, { argKind, options });
     response = await TimeIt.run('percyScreenshot', () => provider.screenshot(name, options));
   } catch (e) {
     log.error(`[${name}] failed to take screenshot: ${e.message}`);

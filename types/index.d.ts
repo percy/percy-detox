@@ -17,6 +17,10 @@ declare namespace percyScreenshot {
     takeScreenshot(name: string): Promise<string>;
     id?: string;
     name?: string;
+    /** Detox device type, e.g. `android.cloud` on BrowserStack App Automate. */
+    type?: string;
+    /** CloudPlatform channel from `@browserstack/detox` (20.51.3-cloud.2+). */
+    cloudPlatform?(method: string, args?: Record<string, unknown>): Promise<unknown>;
   }
 
   interface DetoxElement {
@@ -42,11 +46,14 @@ declare namespace percyScreenshot {
     testCase?: string;
     labels?: string;
     sync?: boolean;
-    /** `auto` (default): element capture on cloud devices, device capture otherwise. */
-    screenshotMode?: 'auto' | 'device' | 'element';
+    /**
+     * `auto` (default): on App Automate, host-side full-screen capture when available, else
+     * element capture; device capture elsewhere. `cloud` forces the App Automate capture.
+     */
+    screenshotMode?: 'auto' | 'device' | 'element' | 'cloud';
     /** testID of the view to capture in element mode. Required on iOS. */
     rootTestID?: string;
-    /** Region scale factor override. Cloud devices default to 1. */
+    /** Scale for point-based custom regions. App Automate uses the device density by default. */
     scaleFactor?: number;
   }
 

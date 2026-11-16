@@ -61,7 +61,9 @@ describe('GenericProvider', () => {
     const payload = postComparisonSpy.calls.mostRecent().args[0];
     expect(payload.name).toBe('Home');
     expect(Array.isArray(payload.tiles)).toBe(true);
-    expect(payload.tiles[0].filepath).toMatch(/\.png$/);
+    // Tiles carry base64 bytes, not a path (the CLI may not share this filesystem).
+    expect(payload.tiles[0].filepath).toBeUndefined();
+    expect(payload.tiles[0].content).toBe((await fs.readFile(png)).toString('base64'));
     expect(payload.tag.osName).toBe('Android');
     expect(payload.environmentInfo).toMatch(/^\(detox\//);
     expect(payload.clientInfo).toMatch(/^@percy\/detox\//);
@@ -71,11 +73,44 @@ describe('GenericProvider', () => {
     expect(result).toEqual({ body: { data: { link: 'https://percy.io/build/1' } } });
   });
 
-  it('throws when takeScreenshot returns empty path', async () => {
+  it('throws when takeScreenshot returns empty path in device mode', async () => {
     const device = makeDevice('android');
     spyOn(device, 'takeScreenshot').and.resolveTo('');
     const provider = new GenericProvider(device, { argKind: 'device' });
-    await expectAsync(provider.screenshot('X', {})).toBeRejectedWithError(/empty path/);
+    await expectAsync(provider.screenshot('X', { screenshotMode: 'device' })).toBeRejectedWithError(/empty path/);
+  });
+
+  it('falls back to element capture when takeScreenshot returns empty path in auto mode', async () => {
+    const device = makeDevice('android');
+    spyOn(device, 'takeScreenshot').and.resolveTo('');
+    const provider = new GenericProvider(device, { argKind: 'device', getDetox: () => null });
+    await expectAsync(provider.screenshot('X', {})).toBeRejectedWithError(/element capture needs the detox module/);
+  });
+
+  it('throws a clear error in screenshotMode "cloud" (App Automate provider unavailable)', async () => {
+    const device = makeDevice('android');
+    const provider = new GenericProvider(device, { argKind: 'device' });
+    await expectAsync(provider.screenshot('X', { screenshotMode: 'cloud' }))
+      .toBeRejectedWithError(/screenshotMode 'cloud' needs an android\.cloud device/);
+  });
+
+  it('does not scale Android element regions but scales custom regions (points)', async () => {
+    const png = await makePngFile();
+    const device = makeDevice('android');
+    spyOn(device, 'takeScreenshot').and.resolveTo(png);
+    const provider = new GenericProvider(device, {
+      argKind: 'device',
+      deviceConfig: {}
+    });
+    const el = { getAttributes: async () => ({ frame: { x: 60, y: 277, width: 960, height: 65 } }) };
+    // No adb in tests, so local Android metadata falls back to scaleFactor 2.
+    await provider.screenshot('Regions', {
+      ignoreRegionElements: [el],
+      customIgnoreRegions: [{ top: 10, bottom: 20, left: 0, right: 100 }]
+    });
+    const ignore = postComparisonSpy.calls.mostRecent().args[0].ignoredElementsData.ignoreElementsData;
+    expect(ignore[0].coOrdinates).toEqual({ top: 277, bottom: 342, left: 60, right: 1020 });
+    expect(ignore[1].coOrdinates).toEqual({ top: 20, bottom: 40, left: 0, right: 200 });
   });
 
   it('warns once when fullPage option is passed', async () => {
@@ -250,5 +285,127 @@ describe('GenericProvider', () => {
     } finally {
       if (cachedGp) require.cache[gpPath] = cachedGp;
     }
+  });
+
+  it('ignores a failure to delete the SDK temp copy', async () => {
+    const png = await makePngFile();
+    const device = makeDevice('android');
+    spyOn(device, 'takeScreenshot').and.resolveTo(png);
+    spyOn(fs, 'unlink').and.rejectWith(new Error('EBUSY'));
+    const provider = new GenericProvider(device, { argKind: 'device' });
+    await expectAsync(provider.screenshot('A', {})).toBeResolved();
+    expect(fs.unlink).toHaveBeenCalled();
+  });
+
+  describe('element capture', () => {
+    function makeRoot(png, frame = { x: 0, y: 0, width: 100, height: 200 }) {
+      return {
+        takeScreenshot: jasmine.createSpy('rootShot').and.resolveTo(png),
+        getAttributes: async () => ({ frame })
+      };
+    }
+    function makeDetox(root) {
+      return {
+        by: { type: (t) => ({ type: t }), id: (id) => ({ id }) },
+        element: jasmine.createSpy('element').and.callFake((m) => (m.id ? root : { atIndex: () => root }))
+      };
+    }
+
+    it('captures a passed element and makes regions relative to its origin', async () => {
+      const png = await makePngFile();
+      const el = {
+        takeScreenshot: async () => png,
+        getAttributes: async () => ({ elements: [{ frame: { x: 10, y: 20, width: 100, height: 200 } }] })
+      };
+      const region = { getAttributes: async () => ({ frame: { x: 15, y: 30, width: 5, height: 5 } }) };
+      const provider = new GenericProvider(el, { argKind: 'element', deviceConfig: {}, getDetox: () => null });
+      await provider.screenshot('El', { ignoreRegionElements: [region] });
+      const ignore = postComparisonSpy.calls.mostRecent().args[0].ignoredElementsData.ignoreElementsData;
+      // No platform known (fallback metadata) → element scale = fallback scale (2).
+      expect(ignore[0].coOrdinates).toEqual({ top: 20, bottom: 30, left: 10, right: 20 });
+    });
+
+    it('assumes origin 0,0 when the captured element frame cannot be read', async () => {
+      const png = await makePngFile();
+      const el = { takeScreenshot: async () => png, getAttributes: async () => { throw new Error('gone'); } };
+      const provider = new GenericProvider(el, { argKind: 'element', deviceConfig: {}, getDetox: () => null });
+      await expectAsync(provider.screenshot('El', {})).toBeResolved();
+    });
+
+    it('assumes origin 0,0 when the captured element has no frame', async () => {
+      const png = await makePngFile();
+      const el = { takeScreenshot: async () => png, getAttributes: async () => ({}) };
+      const provider = new GenericProvider(el, { argKind: 'element', deviceConfig: {}, getDetox: () => null });
+      expect(await provider.capture('El', {})).toEqual(jasmine.objectContaining({ origin: { x: 0, y: 0 } }));
+    });
+
+    it('defaults missing frame x/y to 0', async () => {
+      const el = { takeScreenshot: async () => 'p.png', getAttributes: async () => ({ frame: { width: 1 } }) };
+      const provider = new GenericProvider(el, { argKind: 'element', deviceConfig: {}, getDetox: () => null });
+      expect((await provider.capture('El', {})).origin).toEqual({ x: 0, y: 0 });
+    });
+
+    it('captures the DecorView on cloud devices in auto mode', async () => {
+      const png = await makePngFile();
+      const root = makeRoot(png);
+      const detox = makeDetox(root);
+      const device = makeDevice('android');
+      const takeSpy = spyOn(device, 'takeScreenshot');
+      const provider = new GenericProvider(device, {
+        argKind: 'device', deviceConfig: { type: 'android.cloud' }, getDetox: () => detox
+      });
+      await provider.screenshot('Cloud', {});
+      expect(takeSpy).not.toHaveBeenCalled();
+      expect(root.takeScreenshot).toHaveBeenCalled();
+      expect(detox.element).toHaveBeenCalledWith({ type: 'android.widget.FrameLayout' });
+      const payload = postComparisonSpy.calls.mostRecent().args[0];
+      expect(payload.tag.width).toBe(100);
+      expect(payload.tag.height).toBe(200);
+    });
+
+    it('uses rootTestID (option or env) for the root view', async () => {
+      const png = await makePngFile();
+      const root = makeRoot(png);
+      const detox = makeDetox(root);
+      const provider = new GenericProvider(makeDevice('ios'), {
+        argKind: 'device', deviceConfig: {}, getDetox: () => detox
+      });
+      await provider.capture('A', { screenshotMode: 'element', rootTestID: 'app-root' });
+      expect(detox.element).toHaveBeenCalledWith({ id: 'app-root' });
+      process.env.PERCY_DETOX_ROOT_TEST_ID = 'env-root';
+      try {
+        await provider.capture('B', { screenshotMode: 'element' });
+        expect(detox.element).toHaveBeenCalledWith({ id: 'env-root' });
+      } finally {
+        delete process.env.PERCY_DETOX_ROOT_TEST_ID;
+      }
+    });
+
+    it('requires rootTestID on iOS', async () => {
+      const detox = makeDetox(makeRoot('x.png'));
+      const provider = new GenericProvider(makeDevice('ios'), {
+        argKind: 'device', deviceConfig: {}, getDetox: () => detox
+      });
+      await expectAsync(provider.capture('A', { screenshotMode: 'element' }))
+        .toBeRejectedWithError(TypeError, /needs options.rootTestID/);
+    });
+
+    it('works without a resolvable device (no platform)', async () => {
+      const detox = makeDetox(makeRoot('x.png'));
+      const provider = new GenericProvider(makeDevice('android'), {
+        argKind: 'device', deviceConfig: {}, getDetox: () => detox
+      });
+      provider.device = null;
+      expect((await provider.capture('A', { screenshotMode: 'element' })).mode).toBe('element');
+    });
+
+    it('throws when the root view screenshot is empty', async () => {
+      const detox = makeDetox(makeRoot(''));
+      const provider = new GenericProvider(makeDevice('android'), {
+        argKind: 'device', deviceConfig: {}, getDetox: () => detox
+      });
+      await expectAsync(provider.capture('A', { screenshotMode: 'element' }))
+        .toBeRejectedWithError(/root element takeScreenshot returned an empty path/);
+    });
   });
 });

@@ -146,15 +146,14 @@ describe('index — percyScreenshot entry', () => {
     const indexPath = require.resolve('../../index');
     const postFailedEventsPath = require.resolve('../../percy/util/postFailedEvents');
     const gpPath = require.resolve('../../percy/providers/genericProvider');
+    const aaPath = require.resolve('../../percy/providers/appAutomateProvider');
+    const resolverPath = require.resolve('../../percy/providers/providerResolver');
 
-    const saved = {
-      [indexPath]: require.cache[indexPath],
-      [postFailedEventsPath]: require.cache[postFailedEventsPath],
-      [gpPath]: require.cache[gpPath]
-    };
-    delete require.cache[indexPath];
-    delete require.cache[postFailedEventsPath];
-    delete require.cache[gpPath];
+    const saved = {};
+    for (const p of [indexPath, postFailedEventsPath, gpPath, aaPath, resolverPath]) {
+      saved[p] = require.cache[p];
+      delete require.cache[p];
+    }
 
     require.cache[postFailedEventsPath] = {
       id: postFailedEventsPath,

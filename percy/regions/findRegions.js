@@ -8,7 +8,11 @@ function defaultGetDetox() {
   }
 }
 
-async function findRegions({ kind, scaleFactor, options, origin }, deps = {}) {
+// `scaleFactor` converts point coordinates (custom regions, iOS element frames) to
+// pixels. `elementScaleFactor` applies to element frames and defaults to `scaleFactor`;
+// pass 1 on Android, where Detox already reports getAttributes().frame in pixels.
+async function findRegions({ kind, scaleFactor, elementScaleFactor, options, origin }, deps = {}) {
+  const elementScale = elementScaleFactor ?? scaleFactor;
   const getDetox = deps.getDetox || defaultGetDetox;
   const detox = getDetox();
 
@@ -27,7 +31,7 @@ async function findRegions({ kind, scaleFactor, options, origin }, deps = {}) {
       }
       const attrs = await detox.element(detox.by.id(id)).getAttributes();
       const frame = extractFrame(attrs, `id: ${id}`);
-      if (frame) out.push(frameToRegion(`id: ${id}`, frame, scaleFactor, origin));
+      if (frame) out.push(frameToRegion(`id: ${id}`, frame, elementScale, origin));
     } catch (e) {
       log.info(`Detox id '${id}' not resolvable: ${e.message}`);
     }
@@ -42,7 +46,7 @@ async function findRegions({ kind, scaleFactor, options, origin }, deps = {}) {
       }
       const attrs = await el.getAttributes();
       const frame = extractFrame(attrs, `element[${i}]`);
-      if (frame) out.push(frameToRegion(`element[${i}]`, frame, scaleFactor, origin));
+      if (frame) out.push(frameToRegion(`element[${i}]`, frame, elementScale, origin));
     } catch (e) {
       log.info(`${prefix}RegionElements[${i}] getAttributes failed: ${e.message}`);
     }

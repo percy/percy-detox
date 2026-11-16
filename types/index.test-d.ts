@@ -13,6 +13,18 @@ const element: percyScreenshot.DetoxElement = {
   getAttributes: async () => ({})
 };
 
+// App Automate device with the CloudPlatform channel
+const cloudDevice: percyScreenshot.DetoxDevice = {
+  getPlatform: () => 'android',
+  takeScreenshot: async (_name: string) => '',
+  type: 'android.cloud',
+  cloudPlatform: async (_method: string, _args?: Record<string, unknown>) => ({ success: true })
+};
+expectType<Promise<percyScreenshot.SnapshotResponse | undefined>>(
+  percyScreenshot(cloudDevice, 'Cloud', { screenshotMode: 'cloud' })
+);
+expectError(percyScreenshot(cloudDevice, 'Cloud', { screenshotMode: 'bogus' }));
+
 // Required arguments
 expectError(percyScreenshot());
 expectError(percyScreenshot(device));

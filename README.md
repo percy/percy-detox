@@ -48,7 +48,7 @@ A working example app is available at [percy/example-percy-detox](https://github
 | Android — local USB-attached real device | ✅ Same local driver as emulator |
 | iOS — local simulator | ✅ Supported |
 | iOS — local real device | ⚠️ Works in principle; uncommon |
-| Android — BrowserStack App Automate (`android.cloud`) | ✅ Element capture of the app window (see below) |
+| Android — BrowserStack App Automate (`android.cloud`) | ✅ Full-screen capture on the BrowserStack host, or element capture of the app window (see below) |
 
 ## API
 
@@ -78,11 +78,14 @@ await percyScreenshot(deviceOrElement, name, options?)
 | `testCase` | `string` | Group snapshot in the Percy review UI. |
 | `labels` | `string` | Comma-separated label chips for the snapshot. |
 | `sync` | `boolean` | Block until the Percy build finalizes. |
-| `screenshotMode` | `'auto' \| 'device' \| 'element'` | `auto` (default) uses element capture on cloud devices and device capture elsewhere. |
+| `screenshotMode` | `'auto' \| 'device' \| 'element' \| 'cloud'` | `auto` (default): on App Automate, full-screen capture on the BrowserStack host when available, else element capture; device capture elsewhere. `cloud` forces the host capture and fails instead of falling back. |
 | `rootTestID` | `string` | testID of the view to capture in element mode. Required on iOS. |
-| `scaleFactor` | `number` | Region scale override. Cloud devices default to `1`. |
+| `scaleFactor` | `number` | Scale applied to `customIgnoreRegions` / `customConsiderRegions`. Defaults to the device density where the SDK can read it, and to `1` in App Automate element capture. |
 
-**Coordinate space:** all region options accept **point** coordinates. The SDK multiplies by the device scale factor automatically. Do not pre-multiply.
+**Coordinate space:**
+
+- `customIgnoreRegions` / `customConsiderRegions` take **point** (dp) coordinates. The SDK multiplies them by the device scale factor (Android: `wm density / 160`). Do not pre-multiply.
+- Element regions (`*RegionIds`, `*RegionElements`) need no conversion. On Android, Detox already reports element frames in screen pixels, so the SDK uses them as is. On iOS, frames are points and the SDK scales them.
 
 ## Examples
 
@@ -111,17 +114,31 @@ await percyScreenshot(device, 'Login screen', { testCase: 'auth-suite' });
 
 ## BrowserStack App Automate
 
-BrowserStack's Detox driver (`@browserstack/detox`, device type `android.cloud`) runs your tests on your machine and drives a real device over a websocket. Its `device.takeScreenshot()` returns an empty path, because there is no adb connection back to your machine. Element screenshots still work: they run as an Espresso action inside the app and come back over the same websocket.
+BrowserStack's Detox driver (`@browserstack/detox`, device type `android.cloud`) runs your tests and the Percy CLI on your machine and drives a real device on BrowserStack. There is no adb connection back to your machine, so `device.takeScreenshot()` returns an empty path. Android only.
 
-So on cloud devices `percyScreenshot(device, ...)` captures the app's root view (the window DecorView) instead of the device screen:
-
-- The system status bar is not captured, so clock and battery changes don't cause diffs.
-- The device tag comes from the Detox device config (`device.name`, `device.osVersion`) unless you pass `deviceName` / `osVersion`.
-- Single-page only.
+Setup:
 
 ```sh
+npm install --save-dev @percy/cli @percy/detox detox@npm:@browserstack/detox@20.51.3-cloud.2
+export PERCY_TOKEN=<app_...>
 npx percy app:exec -- npx detox test -c android.cloud.debug
 ```
+
+How `percyScreenshot(device, ...)` captures on App Automate:
+
+1. **Full-screen capture on the BrowserStack host** (`@browserstack/detox` 20.51.3-cloud.2 or later). The SDK asks the host over Detox's cloud channel (`device.cloudPlatform('percyScreenshot', ...)`). The host takes the screenshot with adb and uploads it to Percy. The snapshot links back to the App Automate session. The image includes the system status and navigation bars; the host reports their heights, and Percy excludes those bands from the diff, so clock and battery changes don't cause diffs. Pass `statusBarHeight` / `navigationBarHeight` (pixels) to override the reported heights.
+2. **Element capture of the app window** otherwise. The SDK captures the app's root view (the window DecorView) with an Espresso element screenshot. The system bars are not in the image at all, so the snapshot is the app window only. The SDK uses this mode when:
+   - the installed `@browserstack/detox` has no `device.cloudPlatform` (older builds), or
+   - the host says `percyScreenshot` is not supported, or a tile comes back without a sha. The SDK logs this once and uses element capture for the rest of the run.
+
+Other host errors fail the screenshot, unless `PERCY_IGNORE_ERRORS=true`. Use `screenshotMode: 'cloud'` to fail instead of falling back, or `'element'` to always use element capture. Passing an element handle (`percyScreenshot(element(...), ...)`) always captures that element.
+
+Notes:
+
+- Single-page only (`fullPage` produces one tile).
+- The device tag comes from the App Automate session (or the Detox device config in element capture) unless you pass `deviceName` / `osVersion`.
+- In element capture there is no adb to read the density, so custom regions are treated as pixels unless you pass `scaleFactor`.
+- `@percy/detox` accepts `20.51.3-cloud.*` prereleases as its `detox` peer, so no `--legacy-peer-deps` is needed.
 
 ## Configuration
 
@@ -131,7 +148,7 @@ npx percy app:exec -- npx detox test -c android.cloud.debug
 | `PERCY_IGNORE_ERRORS` | If `'true'`, screenshot failures are logged and swallowed instead of failing the test. |
 | `PERCY_LOGLEVEL` | `silent`, `info`, `debug`. Defaults to `info`. |
 | `PERCY_METRICS` | If `'true'`, collect per-screenshot timing telemetry. |
-| `PERCY_DETOX_SCREENSHOT_MODE` | Default for `screenshotMode`. |
+| `PERCY_DETOX_SCREENSHOT_MODE` | Default for `screenshotMode` (`auto`, `device`, `element`, `cloud`). |
 | `PERCY_DETOX_ROOT_TEST_ID` | Default for `rootTestID`. |
 
 ## Debugging

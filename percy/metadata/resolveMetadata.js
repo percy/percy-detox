@@ -91,9 +91,8 @@ function createCloudMetadata(platform, options = {}, { readFile = fs.readFile, d
     statusBarHeight: async () => options.statusBarHeight || 0,
     navigationBarHeight: async () => options.navigationBarHeight || 0,
 
-    // Detox Android reports getAttributes().frame in screen pixels (per the CE
-    // implementation, BrowserStackCE/percy-detox-android), so regions need no scaling
-    // by default. Unverified against a real device; overridable via options.scaleFactor.
+    // Scales point-based custom regions only (Android element frames are already pixels).
+    // There is no adb here to read density, so pass options.scaleFactor to convert points.
     scaleFactor: async () => {
       const s = Number(options.scaleFactor);
       return Number.isFinite(s) && s > 0 ? s : 1;
